@@ -1,0 +1,159 @@
+# TCP CHECK EXPORTER CONFIGURATION EXAMPLE
+
+# Copy this file to config.yaml and edit according to your needs.
+
+# SERVER SECTION - HTTP server settings
+server:
+  # Port on which the HTTP server will listen
+  # Type: integer
+  # Required: yes
+  # Example: 8080, 9090, 9100
+  listen_address: 8080
+
+  # Path to metrics endpoint (without leading slash)
+  # Type: string
+  # Required: no (default: "metrics")
+  # Example: "metrics", "probe", "host/status"
+  metrics_path: "metrics"
+
+# LOG SECTION - logging settings
+log:
+  # Log level
+  # Type: string
+  # Required: no (default: "info")
+  # Options: debug, info, warn, error
+  level: "info"
+
+  # Log format
+  # Type: string
+  # Required: no (default: "text")
+  # Options: text, json
+  format: "text"
+
+  # Log output destination
+  # Type: string
+  # Required: no (default: "stdout")
+  # Options: stdout, stderr, file
+  output: "stdout"
+
+  # Path to log file (required only if output = "file")
+  # Type: string
+  # Required: when output = "file"
+  # Example: "/var/log/tcp-check-exporter.log"
+  file: "/var/log/tcp-check-exporter.log"
+
+# PROBE SECTION - probing settings
+probe:
+  # Global timeout for host response
+  # Type: duration string
+  # Required: no (default: "3s")
+  # Format: number + unit (s - seconds, ms - milliseconds, m - minutes)
+  # Example: "1s", "500ms", "2s", "5s"
+  timeout: "3s"
+
+  # Interval between probe cycles
+  # Type: duration string
+  # Required: no (default: "60s")
+  # Format: number + unit (s - seconds, m - minutes)
+  # Example: "30s", "1m", "5m", "60s"
+  interval: "60s"
+
+  # Number of parallel workers for probing
+  # Type: integer
+  # Required: no (default: 5)
+  # Recommendations:
+  #   1-10 targets   -> workers: 5
+  #   10-50 targets  -> workers: 10
+  #   50-200 targets -> workers: 20
+  #   200+ targets   -> workers: 50
+  workers: 10
+
+# TARGETS SECTION - list of hosts to probe
+targets:
+  # -------- EXAMPLE 1: Basic host --------
+  - host: "8.8.8.8"
+    port: 53
+    name: "google_dns"
+
+  # -------- EXAMPLE 2: Host with custom timeout --------
+  - host: "google.com"
+    port: 80
+    name: "google_http"
+    timeout: "5s"
+
+  # -------- EXAMPLE 3: Local resource --------
+  - host: "192.168.1.1"
+    port: 80
+    name: "local_router"
+
+  # -------- EXAMPLE 4: HTTPS port --------
+  - host: "github.com"
+    port: 443
+    name: "github_https"
+
+  # -------- EXAMPLE 5: Slow server with longer timeout --------
+  - host: "slow-server.internal"
+    port: 8080
+    name: "slow_api"
+    timeout: "10s"
+
+  # -------- EXAMPLE 6: External server with short timeout --------
+  - host: "1.1.1.1"
+    port: 80
+    name: "cloudflare_fast"
+    timeout: "1s"
+
+# EXAMPLES
+
+# 1. Minimal configuration:
+#    server:
+#      listen_address: 8080
+#    targets:
+#      - host: "10.10.10.10"
+#        port: 9090
+#        name: "service1"
+
+# 2. Full configuration with file logging:
+#    server:
+#      listen_address: 9090
+#      metrics_path: "metrics"
+#    log:
+#      level: "debug"
+#      format: "json"
+#      output: "file"
+#      file: "/var/log/tcp-check-exporter.log"
+#    probe:
+#      timeout: "5s"
+#      interval: "30s"
+#      workers: 20
+#    targets:
+#      - host: "10.10.10.10"
+#        port: 9090
+#        name: "main_api"
+#      - host: "11.11.11.11"
+#        port: 8081
+#        name: "backup_service"
+#        timeout: "10s"
+
+# 3. Kubernetes configuration:
+#    server:
+#      listen_address: 8080
+#    probe:
+#      timeout: "2s"
+#      interval: "60s"
+#      workers: 10
+#    targets:
+#      - host: "kubernetes.default.svc.cluster.local"
+#        port: 443
+#        name: "k8s_api"
+#      - host: "prometheus-operated.monitoring.svc.cluster.local"
+#        port: 9090
+#        name: "prometheus"
+#        timeout: "3s"
+
+# NOTES
+
+# - listen_address is port only, host defaults to "0.0.0.0"
+# - timeout and interval support suffixes: s (seconds), ms (milliseconds), m (minutes)
+# - name is used as a label in the host_up metric
+# - If target.timeout is not set, global probe.timeout is used
