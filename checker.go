@@ -1,18 +1,15 @@
 package main
 
 import (
-	"net"
-	"strconv"
-	"time"
+    "net"
+    "time"
 )
 
-func checkHost(host string, port int, timeout time.Duration) (up bool, latency float64) {
+func checkHost(host, port string, timeout time.Duration) (up bool, latency float64) {
     start := time.Now()
-    
-    conn, err := net.DialTimeout("tcp", host+":"+strconv.Itoa(port), timeout)
-    
+    conn, err := net.DialTimeout("tcp", host+":"+port, timeout)
     latency = time.Since(start).Seconds()
-    
+
     if err != nil {
         return false, latency
     }

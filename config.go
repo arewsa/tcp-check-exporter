@@ -1,79 +1,120 @@
 package main
 
 import (
-	"fmt"
-	"os"
-	"time"
+    "fmt"
+    "os"
+    "strconv"
+    "time"
 
-	"gopkg.in/yaml.v3"
+    "gopkg.in/yaml.v3"
 )
 
 type ServerConfig struct {
-	ListenPort  int    `yaml:"listen_port"`
-	MetricsPath string `yaml:"metrics_path"`
+    ListenAddress int    `yaml:"listen_address"`
+    MetricsPath   string `yaml:"metrics_path"`
+}
+
+type LogConfig struct {
+    Level  string `yaml:"level"`
+    Format string `yaml:"format"`
+    Output string `yaml:"output"`
+    File   string `yaml:"file"`
 }
 
 type ProbeConfig struct {
-	Timeout  string `yaml:"timeout"`
-	Interval string `yaml:"interval"`
+    Timeout  string `yaml:"timeout"`
+    Interval string `yaml:"interval"`
+    Workers  int    `yaml:"workers"`
 }
 
 type TargetConfig struct {
-	Host string `yaml:"host"`
-	Port int    `yaml:"port"`
-	Name string `yaml:"name"`
+    Host    string `yaml:"host"`
+    Port    int    `yaml:"port"`
+    Name    string `yaml:"name"`
+    Timeout string `yaml:"timeout"`
 }
 
 type Config struct {
-	Server  ServerConfig   `yaml:"server"`
-	Probe   ProbeConfig    `yaml:"probe"`
-	Targets []TargetConfig `yaml:"targets"`
+    Server  ServerConfig   `yaml:"server"`
+    Log     LogConfig      `yaml:"log"`
+    Probe   ProbeConfig    `yaml:"probe"`
+    Targets []TargetConfig `yaml:"targets"`
 }
 
 type ParsedConfig struct {
-	ListenPort  int
-	MetricsPath string
-	Timeout     time.Duration
-	Interval    time.Duration
-	Targets     []TargetConfig
+    ListenAddress string
+    MetricsPath   string
+    LogLevel      string
+    LogFormat     string
+    LogOutput     string
+    LogFile       string
+    Timeout       time.Duration
+    Interval      time.Duration
+    Workers       int
+    Targets       []TargetConfig
 }
 
 func LoadConfig(filename string) (*ParsedConfig, error) {
-	data, err := os.ReadFile(filename)
-	if err != nil {
-		return nil, fmt.Errorf("Cannot read config file: %w", err)
-	}
+    data, err := os.ReadFile(filename)
+    if err != nil {
+        return nil, fmt.Errorf("cannot read config file: %w", err)
+    }
 
-	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("Cannot parse YAML: %w", err)
-	}
+    var cfg Config
+    if err := yaml.Unmarshal(data, &cfg); err != nil {
+        return nil, fmt.Errorf("cannot parse YAML: %w", err)
+    }
 
-	timeout, err := time.ParseDuration(cfg.Probe.Timeout)
-	if err != nil {
-		return nil, fmt.Errorf("Invalid probe.timeout: %w", err)
-	}
+    parsed := &ParsedConfig{
+        ListenAddress: ":" + strconv.Itoa(cfg.Server.ListenAddress),
+        MetricsPath:   cfg.Server.MetricsPath,
+        LogLevel:      cfg.Log.Level,
+        LogFormat:     cfg.Log.Format,
+        LogOutput:     cfg.Log.Output,
+        LogFile:       cfg.Log.File,
+        Workers:       cfg.Probe.Workers,
+        Targets:       cfg.Targets,
+    }
 
-	interval, err := time.ParseDuration(cfg.Probe.Interval)
-	if err != nil {
-		return nil, fmt.Errorf("Invalid probe.interval: %w", err)
-	}
+    if cfg.Server.ListenAddress == 0 {
+        parsed.ListenAddress = ":8080"
+    }
+    if parsed.MetricsPath == "" {
+        parsed.MetricsPath = "metrics"
+    }
+    if parsed.LogLevel == "" {
+        parsed.LogLevel = "info"
+    }
+    if parsed.LogFormat == "" {
+        parsed.LogFormat = "text"
+    }
+    if parsed.LogOutput == "" {
+        parsed.LogOutput = "stdout"
+    }
+    if parsed.Workers <= 0 {
+        parsed.Workers = 5
+    }
 
-	parsed := &ParsedConfig{
-		ListenPort:  cfg.Server.ListenPort,
-		MetricsPath: cfg.Server.MetricsPath,
-		Timeout:     timeout,
-		Interval:    interval,
-		Targets:     cfg.Targets,
-	}
+    timeout, err := time.ParseDuration(cfg.Probe.Timeout)
+    if err != nil {
+        timeout = 3 * time.Second
+    }
+    parsed.Timeout = timeout
 
-	if parsed.ListenPort == 0 {
-		parsed.ListenPort = 8080
-	}
+    interval, err := time.ParseDuration(cfg.Probe.Interval)
+    if err != nil {
+        interval = 60 * time.Second
+    }
+    parsed.Interval = interval
 
-	if parsed.MetricsPath == "" {
-		parsed.MetricsPath = "metrics"
-	}
+    return parsed, nil
+}
 
-	return parsed, nil
+func (c *ParsedConfig) GetTimeoutForTarget(target TargetConfig) time.Duration {
+    if target.Timeout != "" {
+        if timeout, err := time.ParseDuration(target.Timeout); err == nil {
+            return timeout
+        }
+    }
+    return c.Timeout
 }
